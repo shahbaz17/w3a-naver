@@ -2,29 +2,36 @@ require('dotenv').config(); // enables loading .env vars
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const express = require('express');
+const bodyParser = require("body-parser");
 const app = express();
 const cors = require('cors');
 
 // Allow requests from client-side
 app.use(cors({ origin: 'http://localhost:3000' }));
 
-app.post('/api/token', async (req, res) => {
-	// const { clientId, accessToken } = req.body;
+// create application/json parser
+var jsonParser = bodyParser.json()
+
+app.post('/api/token', jsonParser, async (req, res) => {
+	const { clientId, accessToken, naverUser } = req.body;
+	console.log("accessToken", accessToken)
 	try {
 		var privateKey = fs.readFileSync('privateKey.pem');
 		var token = jwt.sign(
 			{
-				sub: 'Custom JWT for Web3Auth Custom Auth',
-				name: 'Mohammad Shahbaz Alam',
-				email: 'shahbaz@web3auth.io',
-				aud: 'urn:my-resource-server', // -> to be used in Custom Authentication as JWT Field
-				iss: 'https://my-authz-server', // -> to be used in Custom Authentication as JWT Field
+				sub: naverUser.id,
+				name: naverUser.name,
+				email: naverUser.email,
+				profileImage: naverUser.profile_image,
+				aud: clientId, // -> to be used in Custom Authentication as JWT Field
+				iss: 'https://web3auth.io', // -> to be used in Custom Authentication as JWT Field
 				iat: Math.floor(Date.now() / 1000),
 				exp: Math.floor(Date.now() / 1000) + 60 * 60,
 			},
 			privateKey,
-			{ algorithm: 'RS256', keyid: '955104a37fa903ed80c57145ec9e83edb29b0c45' },
+			{ algorithm: 'RS256', keyid: '955104a37fa903d9u2h3dinw45ec9e83edb29b0c45' },
 		);
+		console.log("token", token)
 		res.status(200).json({ token });
 	} catch (error) {
 		res.status(500).json({ error: error.message });

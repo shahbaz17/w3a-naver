@@ -19,7 +19,12 @@ function App() {
   const [provider, setProvider] = useState<SafeEventEmitterProvider | null>(null);
 
   useEffect(() => {
+    
     const init = async () => {
+      // if(window.location.href.includes('access_token')){
+      //   console.log('login')
+      //   login()
+      // }
       const { naver } = window as any;
       try {
         const web3auth = new Web3AuthNoModal({
@@ -28,19 +33,19 @@ function App() {
             chainNamespace: CHAIN_NAMESPACES.EIP155,
             chainId: "0x5",
           },
-          web3AuthNetwork: "cyan",
-          useCoreKitKey: false,
+          web3AuthNetwork: "testnet",
         });
 
         const openloginAdapter = new OpenloginAdapter({
           adapterSettings: {
             loginConfig: {
               jwt: {
-                verifier: "web3auth-custom-jwt",
+                verifier: "web3auth-naver-test",
                 typeOfLogin: "jwt",
                 clientId,
               },
             },
+            uxMode: "popup"
           },
         });
         web3auth.configureAdapter(openloginAdapter);
@@ -65,55 +70,55 @@ function App() {
       }
     };
     init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getIdToken = async () => {
+  const login = async () => {
     // Get access token from url params
     const accessToken = window.location.href.split('=')[1].split('&')[0]
-    if (accessToken) {
-      console.log(accessToken);
-    }
+    
     if (naver){
-      const naverUser = naver.user.getEmail();
-      console.log(naverUser);
+      naver.getLoginStatus(async function (status: any) {
+        if(status){
+          const naverUser = naver.user;
+          // Get ID Token from server
+          const res = await fetch("http://localhost:8080/api/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              clientId,
+              accessToken,
+              naverUser
+            }),
+          });
+          const data = await res.json();
+          if (data?.token) {
+            if (!web3auth) {
+              uiConsole("web3auth not initialized yet");
+              return;
+            }
+            try {
+              const web3authProvider = await web3auth.connectTo(
+                WALLET_ADAPTERS.OPENLOGIN,
+                {
+                  loginProvider: "jwt",
+                  extraLoginOptions: {
+                    id_token: data?.token,
+                    verifierIdField: "sub",
+                    domain: "http://localhost:3000",
+                  },
+                }
+              );
+              setProvider(web3authProvider);
+            } catch (error) {
+              console.error(error);
+            }
+          }
+        }
+      });
     }
-    // const naverUser = naver.user;
-    // console.log(naverUser)
-    // Get ID Token from server
-    // const res = await fetch("http://localhost:8080/api/token", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({
-    //     clientId,
-    //     accessToken,
-    //     naverUser
-    //   }),
-    // });
-    // const data = await res.json();
-    // return data?.token;
-  };
-
-  const login = async () => {
-    if (!web3auth) {
-      uiConsole("web3auth not initialized yet");
-      return;
-    }
-    const idToken = await getIdToken();
-
-    const web3authProvider = await web3auth.connectTo(
-      WALLET_ADAPTERS.OPENLOGIN,
-      {
-        loginProvider: "jwt",
-        extraLoginOptions: {
-          id_token: idToken,
-          verifierIdField: "sub",
-          domain: "http://localhost:3000",
-        },
-      }
-    );
-    setProvider(web3authProvider);
   };
 
   const authenticateUser = async () => {
@@ -266,7 +271,7 @@ function App() {
         <a target="_blank" href="http://web3auth.io/" rel="noreferrer">
           Web3Auth
         </a>{" "}
-        & ReactJS-Express Custom JWT Login
+        & Naver Login
       </h1>
 
       <div className="grid">{provider ? loginView : logoutView}</div>
